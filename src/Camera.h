@@ -22,10 +22,15 @@ public:
 	float3x3 K_inv;
 	float4 D;
 
+	cv::cuda::GpuMat projection_map_x, projection_map_y;
+
 	void render_scene(Scene& scene, uchar3* img_ptr, size_t pitch, bool synchronize = false);
 
 private:
 	dim3 block_size;
 	dim3 grid_size;
+
+
+
 };
 

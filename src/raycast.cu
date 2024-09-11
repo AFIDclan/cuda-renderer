@@ -18,7 +18,7 @@ struct HitInfo
 };
 
 
-__device__ HitInfo& cast_ray(Ray& ray, curandState* state, MeshInstance* mesh_instances, int num_mesh_instances, d_MeshPrimitive* meshes, Material* materials, bool lighting_pass = false, float light_distance = FLT_MAX)
+__device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mesh_instances, d_MeshPrimitive* meshes, Material* materials, bool lighting_pass = false, float light_distance = FLT_MAX)
 {
 
     HitInfo hit_info;
@@ -89,11 +89,18 @@ __device__ HitInfo& cast_ray(Ray& ray, curandState* state, MeshInstance* mesh_in
 
                     // If the intersection is at FLT_MAX, the ray did not intersect with the triangle
                     if (intersection.x == FLT_MAX)
-                       continue;
+                        continue;
 
                     float2 uv = mesh.triangles[index].point_inside(intersection);
 
+                    //float dist;
+
+                    //float2 uv = mesh.triangles[index].ray_inside(r_ray, dist);
+
                     if (uv.x != FLT_MAX) {
+
+                        // Express the location in world coordinates
+                        //float3 intersection = r_ray.origin + r_ray.direction * dist;
 
                         hit_info.location.x = intersection.x * mesh_instance.scale.x;
                         hit_info.location.y = intersection.y * mesh_instance.scale.y;
@@ -143,7 +150,7 @@ __device__ HitInfo& cast_ray(Ray& ray, curandState* state, MeshInstance* mesh_in
 
 
 // Simple CUDA kernel to invert image colors
-__global__ void render(uchar3* img, int width, int height, size_t pitch, const float3x3 K_inv, const lre camera_pose, const float4 D, const lre inv_camera_pose, MeshInstance* mesh_instances, int num_mesh_instances, d_MeshPrimitive* meshes, Material* materials) {
+__global__ void render(uchar3* img, int width, int height, size_t pitch, const lre camera_pose, cv::cuda::PtrStepSz<float> projection_map_x, cv::cuda::PtrStepSz<float> projection_map_y, const lre inv_camera_pose, MeshInstance* mesh_instances, int num_mesh_instances, d_MeshPrimitive* meshes, Material* materials) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -155,28 +162,22 @@ __global__ void render(uchar3* img, int width, int height, size_t pitch, const f
 
     float3 origin = make_float3(camera_pose.x, camera_pose.y, camera_pose.z);
 
+    float x_projected = projection_map_x(y, x);
+    float y_projected = projection_map_y(y, x);
 
-    float3 ph = make_float3(x, y, 1.0f);
-
-    float3 direction = apply_matrix(K_inv, ph);
+	float3 direction = make_float3(x_projected, y_projected, 1.0f);
 
 
+	float a = dot(normalize(direction), make_float3(0, 0, 1));
 
-    float a = direction.x;
-    float b = direction.y;
+	if (a < 0.43)
+	{
+		row[x].x = 0;
+		row[x].y = 0;
+		row[x].z = 0;
+		return;
+	}
 
-    float radius = sqrt(a * a + b * b);
-
-    float theta = atan(radius);
-
-    float thetad = theta * (1.0 + D.x * theta + D.y * theta * theta + D.z * theta * theta * theta + D.w * theta * theta * theta * theta);
-
-    float scale = thetad / radius;
-
-    direction.x = scale * a;
-    direction.y = scale * b;
-
-    direction = normalize(direction);
 
     // Rotate by 90 deg to make y forward (world space)
     direction = make_float3(direction.x, direction.z, -direction.y);
@@ -187,10 +188,6 @@ __global__ void render(uchar3* img, int width, int height, size_t pitch, const f
     //Camera Ray direction in world space
     direction = normalize(direction);
 
-    long long seed = (y * width + x) * 1000;
-
-    curandState state;
-    curand_init(seed, 0, 0, &state);
 
     float3 accumulated_color = make_float3(0.0, 0.0, 0.0);
 
@@ -201,7 +198,7 @@ __global__ void render(uchar3* img, int width, int height, size_t pitch, const f
     );
 
 
-    HitInfo hit_info = cast_ray(ray, &state, mesh_instances, num_mesh_instances, meshes, materials);
+    HitInfo hit_info = cast_ray(ray, mesh_instances, num_mesh_instances, meshes, materials);
 
 
     // Hit nothing. Return the sky color

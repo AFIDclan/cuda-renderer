@@ -10,4 +10,4 @@
 
 
 
-__global__ void render(uchar3* img, int width, int height, size_t pitch, const float3x3 K_inv, const lre camera_pose, const float4 D, const lre inv_camera_pose, MeshInstance* mesh_instances, int num_mesh_instances, d_MeshPrimitive* meshes, Material* materials);
+__global__ void render(uchar3* img, int width, int height, size_t pitch, const lre camera_pose, cv::cuda::PtrStepSz<float> projection_map_x, cv::cuda::PtrStepSz<float> projection_map_y, const lre inv_camera_pose, MeshInstance* mesh_instances, int num_mesh_instances, d_MeshPrimitive* meshes, Material* materials);
