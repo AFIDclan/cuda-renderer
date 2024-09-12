@@ -1,0 +1,6 @@
+*.png
+*.obj
+
+x64/
+.vs/
+*.vcxproj.user

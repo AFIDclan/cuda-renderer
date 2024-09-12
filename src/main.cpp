@@ -40,73 +40,72 @@ void display_image(uchar3* d_img, int width, int height, size_t pitch, double fp
     std::string fps_text = "FPS: " + std::to_string(fps);
     cv::putText(img_cpu, fps_text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
 
-    cv::imwrite("out.png", img_cpu);
 
-    // // Display the image using OpenCV
-    // cv::imshow("Image", img_cpu);
+     //Display the image using OpenCV
+     cv::imshow("Image", img_cpu);
 
-    // // Capture key pressed
-    // int key = cv::waitKey(1);
+     //Capture key pressed
+     int key = cv::waitKey(1);
 
-    // if (key == 'w')
-    // {
-	// 	lre inv_camera_pose = invert_lre(*mouse_state.pose);
+     if (key == 'w')
+     {
+	 	lre inv_camera_pose = invert_lre(*mouse_state.pose);
 
-	// 	float3 forward = make_float3(0, 0.1, 0);
+	 	float3 forward = make_float3(0, 0.1, 0);
        
-	// 	float3 new_pos = apply_lre(inv_camera_pose, forward);
+	 	float3 new_pos = apply_lre(inv_camera_pose, forward);
 
-	// 	mouse_state.pose->x = new_pos.x;
-	// 	mouse_state.pose->y = new_pos.y;
-	// 	mouse_state.pose->z = new_pos.z;
-    // }
-	// else if (key == 's')
-	// {
+	 	mouse_state.pose->x = new_pos.x;
+	 	mouse_state.pose->y = new_pos.y;
+	 	mouse_state.pose->z = new_pos.z;
+     }
+	 else if (key == 's')
+	 {
    
-    //     lre inv_camera_pose = invert_lre(*mouse_state.pose);
+         lre inv_camera_pose = invert_lre(*mouse_state.pose);
 
-    //     float3 forward = make_float3(0, -0.1, 0);
+         float3 forward = make_float3(0, -0.1, 0);
 
-    //     float3 new_pos = apply_lre(inv_camera_pose, forward);
+         float3 new_pos = apply_lre(inv_camera_pose, forward);
 
-    //     mouse_state.pose->x = new_pos.x;
-    //     mouse_state.pose->y = new_pos.y;
-    //     mouse_state.pose->z = new_pos.z;
+         mouse_state.pose->x = new_pos.x;
+         mouse_state.pose->y = new_pos.y;
+         mouse_state.pose->z = new_pos.z;
         
-	// }
-	// else if (key == 'a')
-	// {
+	 }
+	 else if (key == 'a')
+	 {
         
-    //     lre inv_camera_pose = invert_lre(*mouse_state.pose);
+         lre inv_camera_pose = invert_lre(*mouse_state.pose);
 
-    //     float3 forward = make_float3(-0.1, 0.0, 0);
+         float3 forward = make_float3(-0.1, 0.0, 0);
 
-    //     float3 new_pos = apply_lre(inv_camera_pose, forward);
+         float3 new_pos = apply_lre(inv_camera_pose, forward);
 
-    //     mouse_state.pose->x = new_pos.x;
-    //     mouse_state.pose->y = new_pos.y;
-    //     mouse_state.pose->z = new_pos.z;
+         mouse_state.pose->x = new_pos.x;
+         mouse_state.pose->y = new_pos.y;
+         mouse_state.pose->z = new_pos.z;
         
-    // }
-    // else if (key == 'd')
-    // {
+     }
+     else if (key == 'd')
+     {
 
-    //     lre inv_camera_pose = invert_lre(*mouse_state.pose);
+         lre inv_camera_pose = invert_lre(*mouse_state.pose);
 
-    //     float3 forward = make_float3(0.1, 0.0, 0);
+         float3 forward = make_float3(0.1, 0.0, 0);
 
-    //     float3 new_pos = apply_lre(inv_camera_pose, forward);
+         float3 new_pos = apply_lre(inv_camera_pose, forward);
 
-    //     mouse_state.pose->x = new_pos.x;
-    //     mouse_state.pose->y = new_pos.y;
-    //     mouse_state.pose->z = new_pos.z;
+         mouse_state.pose->x = new_pos.x;
+         mouse_state.pose->y = new_pos.y;
+         mouse_state.pose->z = new_pos.z;
 
-    // }
+     }
 
-    // // If the key pressed is 'q', then exit the loop
-    // if (key == 'q') {
-    //     exit(0);
-    // }
+     //If the key pressed is 'q', then exit the loop
+     if (key == 'q') {
+         exit(0);
+     }
 }
 
 
@@ -140,9 +139,7 @@ void on_mouse(int event, int x, int y, int, void* param)
 
 int main() {
 
-	//transforms::test_all();
 
-	//exit(0);
 
     // Image dimensions
 
@@ -150,7 +147,6 @@ int main() {
 
     int64 start_time = 0;
     int64 end_time = 0;
-
 
     int width = 1920;
     int height = 1080;
@@ -171,74 +167,17 @@ int main() {
 
 	Scene scene = Scene();
 
-	Material glossy_red = Material();
+    Material* mat = new Material();
+    mat->upload_texture("556_downstairs.png");
 
-	glossy_red.albedo = make_float3(0.1, 0.2, 0.9);
-	glossy_red.roughness = 0.01;
+    scene.add_material(*mat);
 
-	scene.add_material(glossy_red);
-    
-	Material matte = Material();
+    MeshPrimitive* mesh = OBJLoader::load("556_downstairs.obj");
+    scene.add_mesh(*mesh);
 
-    matte.albedo = make_float3(0.9, 0.9, 0.9);
-    matte.roughness = 0.3;
+    MeshInstance* mesh_instance = new MeshInstance(0, 0);
 
-	scene.add_material(matte);
-
-	Material cube_mat = Material();
-
-    cube_mat.albedo = make_float3(1.0, 1.0, 1.0);
-    cube_mat.illumination = 0;
-    cube_mat.upload_texture("calibration_area.jpg");
-
-
-	scene.add_material(cube_mat);
-
-
-
-
-    Material calibration_mat = Material();
-
-    calibration_mat.albedo = make_float3(1.0, 1.0, 1.0);
-    calibration_mat.illumination = 0;
-	calibration_mat.upload_texture("calibration_board.jpg");
-    scene.add_material(calibration_mat);
-
-
-    // MeshPrimitive teapot = OBJLoader::load("./teapot.obj");
-    MeshPrimitive cube = OBJLoader::load("./calibration_area.obj");
-    MeshPrimitive calibration_board = OBJLoader::load("./calibration_board.obj");
-
-	//MeshPrimitive room = OBJLoader::load("./Garage.obj");
-	//MeshPrimitive room = OBJLoader::load("./warehouse_OBJ.obj");
-
-    //room.bvh_top.print_stats();
-
-	// scene.add_mesh(teapot);
-	scene.add_mesh(cube);
-	scene.add_mesh(calibration_board);
-	//scene.add_mesh(room);
-
-
-
-    //scene.add_mesh_instance(teapot_instance);
-
-	MeshInstance cube_instance = MeshInstance(0, 2);
-	cube_instance.pose.x = 0;
-	cube_instance.pose.y = 0;
-	cube_instance.pose.z = 0;
-
-
-    scene.add_mesh_instance(cube_instance);
-
-	MeshInstance calibration_board_instance = MeshInstance(1, 3);
-    calibration_board_instance.pose.x = -0.6;
-    calibration_board_instance.pose.y = 1.48;
-    calibration_board_instance.pose.z = 0.73;
-
-
-    scene.add_mesh_instance(calibration_board_instance);
-
+    scene.add_mesh_instance(*mesh_instance);
 
     scene.upload_to_device();
 
@@ -259,18 +198,13 @@ int main() {
     MouseParams mouse_state;
     mouse_state.pose = &camera.pose;
 
-    // cv::namedWindow("Image");
-    // cv::setMouseCallback("Image", on_mouse, &mouse_state);
+     cv::namedWindow("Image");
+     cv::setMouseCallback("Image", on_mouse, &mouse_state);
 
     // Loop while program is running
     for (int l=0;l<100;l++)
     {
-        angle += 0.005f;
-
         // Start measuring time
-
-        //teapot_instance.pose.yaw = angle;
-        //scene.update_mesh_instance(0, teapot_instance);
 
         start_time = cv::getTickCount();
 
