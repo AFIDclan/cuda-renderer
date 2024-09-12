@@ -202,8 +202,8 @@ int main() {
      cv::setMouseCallback("Image", on_mouse, &mouse_state);
 
     // Loop while program is running
-    for (int l=0;l<100;l++)
-    {
+	 while (true)
+     {
         // Start measuring time
 
         start_time = cv::getTickCount();
