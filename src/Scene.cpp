@@ -7,17 +7,17 @@ Scene::Scene()
 
 }
 
-void Scene::add_material(Material material)
+void Scene::add_material(const Material& material)
 {
 	materials.push_back(material);
 }
 
-void Scene::add_mesh(MeshPrimitive mesh)
+void Scene::add_mesh(const MeshPrimitive& mesh)
 {
 	meshes.push_back(mesh);
 }
 
-void Scene::add_mesh_instance(MeshInstance mesh_instance)
+void Scene::add_mesh_instance(const MeshInstance& mesh_instance)
 {
 	mesh_instances.push_back(mesh_instance);
 }
@@ -64,7 +64,7 @@ void Scene::upload_to_device()
 	num_mesh_instances = mesh_instances.size();
 }
 
-void Scene::update_mesh_instance(int index, MeshInstance mesh_instance)
+void Scene::update_mesh_instance(int index, const MeshInstance& mesh_instance)
 {
 	mesh_instances[index] = mesh_instance;
 

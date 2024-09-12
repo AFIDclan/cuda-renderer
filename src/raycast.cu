@@ -241,47 +241,7 @@ __global__ void render(uchar3* img, int width, int height, size_t pitch, const l
         ray.color.z *= hit_info.material.albedo.z;
     }
 
-
-
-    float3 light_direction = make_float3(-0.2, 0, 1);
-    light_direction = normalize(light_direction);
-
-    float light_illumination = 1.0;
-
-    ray.direction = light_direction;
-    ray.direction_inv = make_float3(1.0 / light_direction.x, 1.0 / light_direction.y, 1.0 / light_direction.z);
-
-
-    // Move just slightly so we don't capture the face we just hit
-    ray.origin = ray.origin + ray.direction * 1e-4;
-
-
-    // Calculate the loss of light due to the angle of incidence
-    //float cos_illum = dot(hit_info.normal, ray.direction);
-
-
-    //ray.illumination = 0.4 * cos_illum;
-
-    //if ((dot(hit_info.normal, light_direction) > 0))
-    //{
-
-    //    // Cast toward light source
-    //    hit_info = cast_ray(ray, &state, mesh_instances, num_mesh_instances, meshes, materials, true, FLT_MAX);
-
-
-    //    // Check if we hit a light source
-    //    if (hit_info.min == FLT_MAX)
-    //    {
-    //        ray.illumination = 1.0 * cos_illum;
-    //    }
-    //}
-
     ray.illumination = 1.0;
-
-    //ray.illumination /= 2.0;
-
-    //ray.illumination += cast_toward_lights(hit_info, make_float3(-3.0, 0.25, 3.0), 100.0, ray, &state, mesh_instances, num_mesh_instances, meshes, materials);
-    //ray.illumination += cast_toward_lights(hit_info, make_float3(16.0, 0.25, 3.0), 100.0, ray, &state, mesh_instances, num_mesh_instances, meshes, materials);
 
     ray.illumination = fminf(1.0, ray.illumination);
     ray.illumination = fmaxf(0.4, ray.illumination);

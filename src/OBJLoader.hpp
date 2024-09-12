@@ -12,7 +12,7 @@ using namespace std;
 namespace OBJLoader
 {
 
-	static MeshPrimitive load(string fp)
+	static MeshPrimitive* load(string fp)
 	{
 
 		std::cout << "Loading OBJ file: " << fp << std::endl;
@@ -174,7 +174,7 @@ namespace OBJLoader
         std::cout << "OBJ File: " << fp << std::endl;
 		std::cout << "Loaded " << triangles.size() << " triangles" << std::endl;
 
-		return MeshPrimitive(triangles);
+		return new MeshPrimitive(triangles);
 
 	}
 }

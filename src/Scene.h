@@ -16,16 +16,16 @@ class Scene
 public:
 	Scene();
 
-	void add_material(Material material);
-	void add_mesh(MeshPrimitive mesh);
-	void add_mesh_instance(MeshInstance mesh_instance);
+	void add_material(const Material& material);
+	void add_mesh(const MeshPrimitive& mesh);
+	void add_mesh_instance(const MeshInstance& mesh_instance);
 
 	Material* d_materials;
 	d_MeshPrimitive* d_meshes;
 	MeshInstance* d_mesh_instances;
 	int num_mesh_instances;
 	void upload_to_device();
-	void update_mesh_instance(int index, MeshInstance mesh_instance);
+	void update_mesh_instance(int index, const MeshInstance& mesh_instance);
 	
 };
 
