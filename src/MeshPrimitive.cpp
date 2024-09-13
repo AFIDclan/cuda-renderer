@@ -17,13 +17,9 @@ MeshPrimitive::MeshPrimitive(std::vector<TrianglePrimitive> triangles)
 d_MeshPrimitive* MeshPrimitive::to_device()
 {
 
-	d_BVHTree* d_bvh_tree = BVHTree::compile_tree(this->bvh_top);
+	CompiledBVHTree c = BVHTree::compile_tree(this->bvh_top);
 
-	TrianglePrimitive* d_triangles;
-	cudaMalloc(&d_triangles, this->num_triangles * sizeof(TrianglePrimitive));
-	cudaMemcpy(d_triangles, this->triangles, this->num_triangles * sizeof(TrianglePrimitive), cudaMemcpyHostToDevice);
-
-	d_MeshPrimitive* host_mesh = new d_MeshPrimitive(this->num_triangles, d_triangles, d_bvh_tree);
+	d_MeshPrimitive* host_mesh = new d_MeshPrimitive(this->num_triangles, c.d_sorted_triangles, c.d_bvh_tree);
 
 	d_MeshPrimitive* d_mesh;
 

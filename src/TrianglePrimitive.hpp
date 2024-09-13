@@ -5,6 +5,15 @@
 #include "Ray.hpp"
 #include <cfloat>
 
+struct TriangleHitInfo {
+    float u, v, w;
+	float3 hit_point;
+	float3 normal;
+	float2 uv;
+    float dist;
+	bool did_hit;
+};
+
 struct TrianglePrimitive {
     float3 vertices[3];
     float3 normal;
@@ -82,71 +91,48 @@ struct TrianglePrimitive {
         return (vertices[0] + vertices[1] + vertices[2]) / 3.0f;
     }
 
-
-    __host__ __device__ float2 ray_inside(const Ray& ray, float& t)
+    // https://github.com/SebLague/Ray-Tracing/blob/main/Assets/Scripts/Shaders/RayTracer.shader
+    __host__ __device__ TriangleHitInfo ray_hit(const Ray& ray)
     {
-        float3 v0v1 = vertices[1] - vertices[0];
-        float3 v0v2 = vertices[2] - vertices[0];
+		float3 edgeAB = vertices[1] - vertices[0];
+		float3 edgeAC = vertices[2] - vertices[0];
 
-		float3 N = cross(v0v1, v0v2);
+		float3 ao = ray.origin - vertices[0];
+		float3 dao = cross(ray.direction, ao);
 
-		float area = magnitude(N);
+		float det = -dot(ray.direction, normal);
+		float inv_det = 1.0f / det;
 
-		float N_dot_ray_dir = dot(N, ray.direction);
+		float dist = dot(ao, normal) * inv_det;
 
-        if (abs(N_dot_ray_dir) < 1e-6) 
-			return make_float2(FLT_MAX, FLT_MAX);
-        
-		float d = -dot(N, vertices[0]);
+		float u = dot(dao, edgeAC) * inv_det;
+		float v = dot(dao, edgeAB) * inv_det;
+		float w = 1.0f - u - v;
 
-		t = -(dot(N, ray.origin) + d) / N_dot_ray_dir;
-
-		if (t < 0.0f)
-			return make_float2(FLT_MAX, FLT_MAX);
-
-		float3 P = ray.origin + t * ray.direction;
-
-		float3 C;
-
-		float3 edge0 = vertices[1] - vertices[0];
-		float3 vp0 = P - vertices[0];
-
-		C = cross(edge0, vp0);
-
-		if (dot(N, C) < 0.0f)
-			return make_float2(FLT_MAX, FLT_MAX);
-
-		float3 edge1 = vertices[2] - vertices[1];
-		float3 vp1 = P - vertices[1];
-
-		C = cross(edge1, vp1);
-		float u = magnitude(C) / area;
-
-		if (dot(N, C) < 0.0f)
-			return make_float2(FLT_MAX, FLT_MAX);
-
-		float3 edge2 = vertices[0] - vertices[2];
-		float3 vp2 = P - vertices[2];
-
-		C = cross(edge2, vp2);
-		float v = magnitude(C) / area;
-
-		if (dot(N, C) < 0.0f)
-			return make_float2(FLT_MAX, FLT_MAX);
-
-        // Calculate barycentric weight for the third vertex
-        float w = 1.0f - u - v;
+		TriangleHitInfo hit_info;
+		hit_info.u = u;
+		hit_info.v = v;
+		hit_info.w = w;
+        hit_info.did_hit = det >= 1e-8 && dist >= 0 && u >= 0 && v >= 0 && w >= 0;
+		hit_info.dist = dist;
+		hit_info.hit_point = ray.origin + dist * ray.direction;
 
         // Interpolate the UV coordinates
         float2 uv0 = uv_coords[0];
         float2 uv1 = uv_coords[1];
         float2 uv2 = uv_coords[2];
 
-        float2 interpolated_uv = (u * uv0) + (v * uv1) + (w * uv2);
+        float2 interpolated_uv = (w * uv0) + (v * uv1) + (u * uv2);
 
-		return interpolated_uv;
+		hit_info.uv = interpolated_uv;
+
+        // for interpolating the normal
+        //hit_info.normal = normalize(tri.normA * w + tri.normB * u + tri.normC * v);
+
+		return hit_info;
 
     }
+
 
     __host__ __device__ float2 point_inside(const float3& point) const {
 

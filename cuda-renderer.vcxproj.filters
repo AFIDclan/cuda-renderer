@@ -25,6 +25,7 @@
     <ClInclude Include="src/raycast.h">
       <Filter>cuda_kernels</Filter>
     </ClInclude>
+    <ClInclude Include="src/Camera.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="cuda_kernels">

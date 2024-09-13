@@ -7,7 +7,7 @@
 Camera::Camera(int width, int height, float3x3 K, float4 D) : width(width), height(height), K(K), D(D)
 {
 	// Define CUDA kernel launch configuration
-	block_size = dim3(16, 16);
+	block_size = dim3(16, 20);
 	grid_size = dim3((width + block_size.x - 1) / block_size.x, (height + block_size.y - 1) / block_size.y);
 
 	K_inv = invert_intrinsic(K);

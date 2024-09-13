@@ -27,7 +27,6 @@ __device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mes
 
         MeshInstance mesh_instance = mesh_instances[mesh_idx];
         d_MeshPrimitive mesh = meshes[mesh_instance.mesh_index];
-        Material material = materials[mesh_instance.material_index];
 
         // Express the ray direction in mesh coordinates
         float3 r_direction = apply_euler(mesh_instance.rotation, ray.direction);
@@ -46,8 +45,7 @@ __device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mes
 
         Ray r_ray = Ray(
             r_origin,
-            r_direction,
-            ray.pixel
+            r_direction
         );
 
 
@@ -63,19 +61,19 @@ __device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mes
 
             // We are assuming this ray intersects with the bounding box of the node since it was pushed onto the stack
 
-            if (current_bvh.child_index_a > 0) {
+            if (current_bvh.count_triangles < 0) {
                 // If the node has children, push them onto the stack
 
-                float dist_a = mesh.bvh_top[current_bvh.child_index_a].ray_intersects(r_ray);
-                float dist_b = mesh.bvh_top[current_bvh.child_index_b].ray_intersects(r_ray);
+                float dist_a = mesh.bvh_top[current_bvh.start_index].ray_intersects(r_ray);
+                float dist_b = mesh.bvh_top[current_bvh.start_index + 1].ray_intersects(r_ray);
 
                 if (dist_a < dist_b) {
-                    if (dist_b < hit_info.min) stack[stack_index++] = current_bvh.child_index_b;
-                    if (dist_a < hit_info.min) stack[stack_index++] = current_bvh.child_index_a;
+                    if (dist_b < hit_info.min) stack[stack_index++] = current_bvh.start_index + 1;
+                    if (dist_a < hit_info.min) stack[stack_index++] = current_bvh.start_index;
                 }
                 else {
-                    if (dist_a < hit_info.min) stack[stack_index++] = current_bvh.child_index_a;
-                    if (dist_b < hit_info.min) stack[stack_index++] = current_bvh.child_index_b;
+                    if (dist_a < hit_info.min) stack[stack_index++] = current_bvh.start_index;
+                    if (dist_b < hit_info.min) stack[stack_index++] = current_bvh.start_index + 1;
                 }
 
 
@@ -83,7 +81,13 @@ __device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mes
             else {
                 // Leaf node: check for intersections with triangles
                 for (int i = 0; i < current_bvh.count_triangles; i++) {
-                    int index = current_bvh.triangle_indices[i];
+                    int index = current_bvh.start_index + i;
+
+                    // Positive means the ray is facing the same direction as the normal and we hit the back of the triangle
+                    float same_dir = dot(r_ray.direction, mesh.triangles[index].normal);
+
+					if (same_dir > 0) continue;
+
 
                     float3 intersection = mesh.triangles[index].ray_intersect(r_ray);
 
@@ -93,9 +97,6 @@ __device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mes
 
                     float2 uv = mesh.triangles[index].point_inside(intersection);
 
-                    //float dist;
-
-                    //float2 uv = mesh.triangles[index].ray_inside(r_ray, dist);
 
                     if (uv.x != FLT_MAX) {
 
@@ -110,10 +111,7 @@ __device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mes
 
                         float distance = magnitude(hit_info.location - ray.origin);
 
-                        // Positive means the ray is facing the same direction as the normal and we hit the back of the triangle
-                        float same_dir = dot(r_ray.direction, mesh.triangles[index].normal);
-
-                        if (same_dir < 0 && (hit_info.min == FLT_MAX || distance < hit_info.min)) {
+                        if (hit_info.min == FLT_MAX || distance < hit_info.min) {
                             hit_info.min = distance;
                             hit_info.triangle = mesh.triangles[index];
 
@@ -130,14 +128,8 @@ __device__ HitInfo& cast_ray(Ray& ray, MeshInstance* mesh_instances, int num_mes
 
                             hit_info.uv = uv;
 
-                            hit_info.material = material;
+                            hit_info.material = materials[mesh_instance.material_index];
 
-
-                            //if (lighting_pass && (material.illumination > 0 || distance < light_distance))
-                       /*     if (lighting_pass &&  distance < light_distance)
-                            {
-                                return hit_info;
-                            }*/
                         }
                     }
                 }
@@ -157,6 +149,7 @@ __global__ void render(uchar3* img, int width, int height, size_t pitch, const l
     if (x >= width || y >= height) {
         return;
     }
+
 
     uchar3* row = (uchar3*)((char*)img + y * pitch);
 
@@ -193,13 +186,10 @@ __global__ void render(uchar3* img, int width, int height, size_t pitch, const l
 
     Ray ray = Ray(
         origin,
-        direction,
-        make_uint2(x, y)
+        direction
     );
 
-
-    HitInfo hit_info = cast_ray(ray, mesh_instances, num_mesh_instances, meshes, materials);
-
+	HitInfo hit_info = cast_ray(ray, mesh_instances, num_mesh_instances, meshes, materials, false, 0.0);
 
     // Hit nothing. Return the sky color
     if (hit_info.min == FLT_MAX) {

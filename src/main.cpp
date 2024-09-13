@@ -175,6 +175,8 @@ int main() {
     MeshPrimitive* mesh = OBJLoader::load("556_downstairs.obj");
     scene.add_mesh(*mesh);
 
+    mesh->bvh_top.print_stats();
+
     MeshInstance* mesh_instance = new MeshInstance(0, 0);
 
     scene.add_mesh_instance(*mesh_instance);
@@ -223,8 +225,6 @@ int main() {
         end_time = cv::getTickCount();
         double time_taken = (end_time - start_time) / cv::getTickFrequency();
         fps = 1.0 / time_taken;
-
-        std::cout << "FPS: " << fps << "\n";
 
 		display_image(d_img, width, height, pitch, fps, mouse_state);
     }

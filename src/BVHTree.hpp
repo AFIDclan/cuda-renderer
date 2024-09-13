@@ -8,6 +8,8 @@
 #include <cfloat>
 #include <math.h>
 
+
+
 struct SplitEvaluation
 {
 	float best_cost = FLT_MAX;
@@ -15,15 +17,12 @@ struct SplitEvaluation
 
 };
 
-struct d_BVHTree {
+struct __align__(32) d_BVHTree {
 
 	float3 min;
 	float3 max;
-	int* triangle_indices;
+	int start_index; // Index of the first triangle if leaf node, or next node A if not ( where node B is A + 1 ) 
 	int count_triangles;
-
-	int child_index_a;
-	int child_index_b;
 
 	__host__ __device__ d_BVHTree() {
 		min.x = FLT_MAX;
@@ -35,12 +34,18 @@ struct d_BVHTree {
 		max.z = -FLT_MAX;
 	}
 
-	__host__ __device__ d_BVHTree(float3 min, float3 max, int child_index_a, int child_index_b, int* triangle_indices, int count_triangles) : min(min), max(max), child_index_a(child_index_a), child_index_b(child_index_b), triangle_indices(triangle_indices), count_triangles(count_triangles) {}
+	__host__ __device__ d_BVHTree(float3 min, float3 max, int start_index, int count_triangles) : min(min), max(max), start_index(start_index), count_triangles(count_triangles) {}
 
 	__host__ __device__ float ray_intersects(const Ray& ray) {
 
-		float3 tmin = (min - ray.origin) * ray.direction_inv;
-		float3 tmax = (max - ray.origin) * ray.direction_inv;
+		float3 o = ray.origin;
+		float3 d = ray.direction_inv;
+
+		float3 m = min;
+		float3 M = max;
+
+		float3 tmin = (m - o) * d;
+		float3 tmax = (M - o) * d;
 
 		float3 t1 = f3_min(tmin, tmax);
 		float3 t2 = f3_max(tmin, tmax);
@@ -56,6 +61,13 @@ struct d_BVHTree {
 
 };
 
+struct CompiledBVHTree {
+	d_BVHTree* d_bvh_tree;
+	TrianglePrimitive* d_sorted_triangles;
+
+	CompiledBVHTree(d_BVHTree* d_bvh_tree, TrianglePrimitive* d_sorted_triangles) : d_bvh_tree(d_bvh_tree), d_sorted_triangles(d_sorted_triangles) {}
+};
+
 struct BVHTree {
 	float3 min;
 	float3 max;
@@ -68,6 +80,7 @@ struct BVHTree {
 
 	std::vector<BVHTree*>* master_list_trees;
 	TrianglePrimitive* master_list_triangles;
+	TrianglePrimitive* master_sorted_triangles;
 
 
 	BVHTree() {
@@ -92,25 +105,6 @@ struct BVHTree {
 		max.x = -FLT_MAX;
 		max.y = -FLT_MAX;
 		max.z = -FLT_MAX;
-	}
-
-	d_BVHTree to_device_compatible() {
-		
-		// Only copy the triangle indices if this is a leaf node
-		if (child_index_a != -1 || child_index_b != -1) {
-
-			return d_BVHTree(min, max, child_index_a, child_index_b, nullptr, 0);
-		}
-		else {
-
-			int* d_triangle_list;
-			cudaMalloc(&d_triangle_list, triangle_indices.size() * sizeof(int));
-			cudaMemcpy(d_triangle_list, triangle_indices.data(), triangle_indices.size() * sizeof(int), cudaMemcpyHostToDevice);
-
-			return d_BVHTree(min, max, child_index_a, child_index_b, d_triangle_list, triangle_indices.size());
-		}
-
-	
 	}
 
 
@@ -282,10 +276,11 @@ struct BVHTree {
 
 		child_index_a = master_list_trees->size();
 		master_list_trees->push_back(new BVHTree(master_list_trees, master_list_triangles, left_indices));
-		master_list_trees->at(child_index_a)->fill(depth + 1, max_depth);
 
 		child_index_b = master_list_trees->size();
 		master_list_trees->push_back(new BVHTree(master_list_trees, master_list_triangles, right_indices));
+
+		master_list_trees->at(child_index_a)->fill(depth + 1, max_depth);
 		master_list_trees->at(child_index_b)->fill(depth + 1, max_depth);
 
 
@@ -361,15 +356,41 @@ struct BVHTree {
 	}
 
 
-	static d_BVHTree* compile_tree(BVHTree& top) {
+	static CompiledBVHTree compile_tree(BVHTree& top) {
 		// Allocate host memory for an array of device-compatible d_BVHTree structures
 		d_BVHTree* host_device_tree = new d_BVHTree[top.master_list_trees->size()];
 
+		TrianglePrimitive* sorted_triangles = new TrianglePrimitive[top.triangle_indices.size()];
+
+		int cur_idx = 0;
+
 		for (int i = 0; i < top.master_list_trees->size(); i++) {
-			host_device_tree[i] = top.master_list_trees->at(i)->to_device_compatible();
+
+			BVHTree* tree = top.master_list_trees->at(i);
+
+			if (tree->child_index_a != -1 || tree->child_index_b != -1) {
+
+				host_device_tree[i] = d_BVHTree(tree->min, tree->max, tree->child_index_a, -1);
+			}
+			else {
+				// Leaf node. Compile Triangles
+
+				int start_idx = cur_idx;
+
+				for (int j = 0; j < tree->triangle_indices.size(); j++) {
+					int idx = tree->triangle_indices[j];
+					
+					sorted_triangles[cur_idx] = top.master_list_triangles[idx];
+					cur_idx++;
+				}
+
+				host_device_tree[i] = d_BVHTree(tree->min, tree->max, start_idx, tree->triangle_indices.size());
+
+			}
 		}
 
 
+		std::cout << "BVH Tree compiled size: " << top.master_list_trees->size() * sizeof(d_BVHTree) << " bytes" << std::endl;
 		d_BVHTree* d_device_tree;
 		cudaMalloc(&d_device_tree, top.master_list_trees->size() * sizeof(d_BVHTree));
 
@@ -378,8 +399,16 @@ struct BVHTree {
 		// Clean up host memory
 		delete[] host_device_tree;
 
-		// Return the device-compatible array of d_BVHTree structures
-		return d_device_tree;
+		
+		TrianglePrimitive* d_sorted_triangles;
+		cudaMalloc(&d_sorted_triangles, top.triangle_indices.size() * sizeof(TrianglePrimitive));
+		cudaMemcpy(d_sorted_triangles, sorted_triangles, top.triangle_indices.size() * sizeof(TrianglePrimitive), cudaMemcpyHostToDevice);
+
+		// Clean up host memory
+		delete[] sorted_triangles;
+
+
+		return CompiledBVHTree(d_device_tree, d_sorted_triangles);
 	}
 
 };
